@@ -1,0 +1,397 @@
+---
+title: 'A replication study of Yi and Choi (2005): The effect of the Internet on inflation'
+author: "Mary Akowe"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+install.packages("plm",repos='https://cran.ma.imperial.ac.uk/')
+install.packages("sandwich",repos='https://cran.ma.imperial.ac.uk/')
+install.packages("lmtest",repos='https://cran.ma.imperial.ac.uk/')
+install.packages("ggplot2",repos='https://cran.ma.imperial.ac.uk/')
+install.packages("tseries",repos='https://cran.ma.imperial.ac.uk/')
+require(tseries)
+require(ggplot2)
+require(plm)
+require(sandwich)
+require(lmtest)
+```
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+
+### Introduction
+
+This report revisits "The effect of the Internet on inflation: Panel data evidence" by Myung Hoon Yi, Changkyu Choi. In their paper they conclude that when the ratio of the Internet users to total population increases by 1%, the inflation drops by 0.04264% point to 0.13193% point.
+
+In assessing the effect on Internet on Inflation, Yi and Choi propose the following equation:
+
+$Inflation_{it}=\beta_{0}+\beta_{1}Internet_{it}+\beta_{2}Money_{it}+\beta_{3}Unemployment_{it}+\beta_{4}Oil_{it}+u_{it}$ 
+
+where $u_{it}=\eta_{i}+\upsilon_{t}+\varepsilon_{it}$, $\eta_{i}$ is an individual (country) effect, $\upsilon_{t}$ is a time effect and $\varepsilon_{it}$ is the error term, independently and identically distributed among countries and years.
+
+However, Friesenbichler (2018) in his own replication of Yi and Choi raises concerns with this equation as he states, _'there are econometric issues with regard to the estimation technique, and the choice to estimate the key variables in levels. Especially internet penetration rates have increased steadily over time, thereby causing non-stationarity and autoregressionissues. Also, the chosen estimation techniques were OLS and panel random effects. Specification tests are not reported however'_.
+
+This study is structured in the following way: I first explain the variables used in the analysis and where they are sourced from. Section 1 replicates Yi and Choi's regressions for the period 1991-2000, and compares the results with that from the original paper. Section 2 then expands the analysis by implementing the same regression methods over a longer period of time, 1991-2018. Section 3 conducts robustness checks in consideration of Friesenbichler's comments.
+
+---
+
+### Data
+
+Inflation is consumer prices (annual %); Internet is the log of Individuals using the Internet (ratio of population); Money is the Broad money growth (annual %); Unemployment is total (% of total labor force) (modeled ILO estimate); Oil is the West Texas Intermediate price (% change).
+
+The Inflation, Money and Unemployment variables are all sourced from the World Bank's [World Development Indicators](https://databank.worldbank.org/source/world-development-indicators), as were Yi and Choi's own variables. They note that their data covers 207 countries but do not specify which countries, thus in this paper, I conduct analysis on 217 countries. The Oil variable is sourced from the International Monetary Fund's [Primary Commodity Price System](https://data.imf.org/?sk=471DDDF8-D8A7-499A-81BA-5B332C01F8B9).
+
+An excel file containing the raw data and  metadata is also provided.
+
+---
+
+### Section 1: Replicating Yi and Choi (1991-2000)
+
+```{r, echo=FALSE,warning=FALSE}
+min<-read.csv("min.csv",header=T)
+```
+
+```{r, echo=FALSE,warning=FALSE}
+star=function(a) {symnum(a,cutpoints = c(0,.01,.05, .1,1),symbols = c("***","**","*",""))}
+q=plm.data(min,indexes=c("Country","Year"))
+q1=plm(Inflation~logInternet+Broad.money.growth,data=q,model="pooling")
+q2=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=q,model="pooling")
+q3=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=q,model="pooling")
+q4=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=q,model="pooling")
+q5=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=q,model="pooling")
+q6=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=q,model="pooling")
+
+r=matrix(data=0,nrow=7,ncol=12)
+rownames(r)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(r)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+r[,1]=t(c(paste0(round(q1$coefficients,digits=3),star(coeftest(q1,vcov.=vcovNW(q1))[,4])),NA,NA,round(r.squared(q1,dfcor=T),digits=3),nrow(q1$model)))
+r[,2]=t(c(round(sqrt(diag(vcovNW(q1))),digits=3),NA,NA,NA,NA))
+r[,3]=t(c(paste0(round(q2$coefficients,digits=3),star(coeftest(q2,vcov.=vcovNW(q2))[,4])),NA,round(r.squared(q2,dfcor=T),digits=3),nrow(q2$model)))
+r[,4]=t(c(round(sqrt(diag(vcovNW(q2))),digits=3),NA,NA,NA))
+r[,5]=t(c(paste0(round(q3$coefficients,digits=3),star(coeftest(q3,vcov.=vcovNW(q3))[,4])),round(r.squared(q3,dfcor=T),digits=3),nrow(q3$model)))
+r[,6]=t(c(round(sqrt(diag(vcovNW(q3))),digits=3),NA,NA))
+r[,7]=t(c(paste0(round(q4$coefficients[1:3],digits=3),star(coeftest(q4,vcov.=vcovNW(q4))[1:3,4])),NA,NA,round(r.squared(q4,dfcor=T),digits=3),nrow(q4$model)))
+r[,8]=t(c(round(sqrt(diag(vcovNW(q4)))[1:3],digits=3),NA,NA,NA,NA))
+r[,9]=t(c(paste0(round(q5$coefficients[1:4],digits=3),star(coeftest(q5,vcov.=vcovNW(q5))[1:4,4])),NA,round(r.squared(q5,dfcor=T),digits=3),nrow(q5$model)))
+r[,10]=t(c(round(sqrt(diag(vcovNW(q5)))[1:4],digits=3),NA,NA,NA))
+r[,11]=t(c(paste0(round(q6$coefficients[1:5],digits=3),star(coeftest(q6,vcov.=vcovNW(q6))[1:5,4])),round(r.squared(q6,dfcor=T),digits=3),nrow(q6$model)))
+r[,12]=t(c(round(sqrt(diag(vcovNW(q6)))[1:5],digits=3),NA,NA))
+```
+
+```{r table1, echo=FALSE,warning=FALSE}
+knitr::kable(r,caption="The Internet and inflation: pooled OLS")
+```
+
+_(1): *** ** and * indicate significance at the 1%, 5% and 10% levels, respectively._  
+_(2): Standard errors are calculated using Newey and West heteroscedasticity and autocorrelation consistent covariance matrix._ 
+
+
+Table 1 displays the results for a pooled ordinary least squares (OLS) regression. Models (a–c) do not include time dummies in the pooled OLS, while models (d–f) do include them. As shown in columns (a–c), the estimated coefficients for Internet are negative and significant at the 10% level and those of Money are positive and significant at the 1% level. Unemployment is statistically insignificant, whilst Oil is significant at the 10% level. Columns (d–f) show similar results to columns (a–c), however Oil becomes insignificant in model f.
+
+The estimated coefficients for internet range from -8.117 to -9.931, which is a smaller interval than was found by Yi and Choi. This implies that when the Internet users ratio increases by 1%, the inflation rate drops by 0.08117% point to 0.09931% point. Moreover, after controlling for time dummies, the estimated coefficients of unemployment do not become significant as found by Yi and Choi.
+
+
+```{r, echo=FALSE,warning=FALSE}
+q7=plm(Inflation~logInternet+Broad.money.growth,data=q,model="random")
+q8=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=q,model="random")
+q9=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=q,model="random")
+q10=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=q,model="random")
+q11=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=q,model="random")
+#q12=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=q,model="random")
+
+s=matrix(data=0,nrow=7,ncol=12)
+rownames(s)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(s)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+s[,1]=t(c(paste0(round(q7$coefficients,digits=3),star(coeftest(q7,vcov.=vcov(q7))[,4])),NA,NA,round(r.squared(q7,dfcor=T),digits=3),nrow(q7$model)))
+s[,2]=t(c(round(sqrt(diag(vcov(q7))),digits=3),NA,NA,NA,NA))
+s[,3]=t(c(paste0(round(q8$coefficients,digits=3),star(coeftest(q8,vcov.=vcov(q8))[,4])),NA,round(r.squared(q8,dfcor=T),digits=3),nrow(q8$model)))
+s[,4]=t(c(round(sqrt(diag(vcov(q8))),digits=3),NA,NA,NA))
+s[,5]=t(c(paste0(round(q9$coefficients,digits=3),star(coeftest(q9,vcov.=vcov(q9))[,4])),round(r.squared(q9,dfcor=T),digits=3),nrow(q9$model)))
+s[,6]=t(c(round(sqrt(diag(vcov(q9))),digits=3),NA,NA))
+s[,7]=t(c(paste0(round(q10$coefficients[1:3],digits=3),star(coeftest(q10,vcov.=vcov(q10))[1:3,4])),NA,NA,round(r.squared(q10,dfcor=T),digits=3),nrow(q10$model)))
+s[,8]=t(c(round(sqrt(diag(vcov(q10)))[1:3],digits=3),NA,NA,NA,NA))
+s[,9]=t(c(paste0(round(q11$coefficients[1:4],digits=3),star(coeftest(q11,vcov.=vcov(q11))[1:4,4])),NA,round(r.squared(q11,dfcor=T),digits=3),nrow(q11$model)))
+s[,10]=t(c(round(sqrt(diag(vcov(q11)))[1:4],digits=3),NA,NA,NA))
+#s[,11]=t(c(paste0(round(q12$coefficients[1:5],digits=3),star(coeftest(q12,vcov.=vcov(q12))[1:5,4])),round(r.squared(q12,dfcor=T),digits=3),nrow(q12$model)))
+#s[,12]=t(c(round(sqrt(diag(vcov(q12)))[1:5],digits=3),NA,NA))
+```
+
+```{r table2, echo=FALSE,warning=FALSE}
+knitr::kable(s,caption="The Internet and inflation: random effects model")
+```
+
+_(1): *** ** and * indicate significance at the 1%, 5% and 10% levels, respectively._ 
+
+
+Table 2 displays the regression results for a random effects model. Models (a–c) do not include time dummies in the pooled OLS, while models (d–e) do include them. The model fails to provide results for model f which includes regresses inflation on Internet, Money, Unemployment and Oil as well as the time dummies. Instead, the following error is presented: '**system is computationally singular**'. Please note that the standard errors are no longer calculated using the Newey and West heteroscedasticity and autocorrelation consistent covariance matrix.
+
+The estimated coefficients using the random effects model are exactly the same as the pooled OLS. For columns (a-c) the estimated coefficients for Internet are negative, however they are now significant at the 5% level for models a-b and significant at the 10% level for model c. Those of Money are positive and significant at the 1% level. Unemployment and Oil are both statistically insignificant. Columns (d–e) show the most striking results in contrast to Yi and Choi, as only the coefficients for Money remain statistically significant at the 1% level.
+
+---
+
+### Section 2: Expanding Yi and Choi (1991-2018)
+
+```{r, echo=FALSE,warning=FALSE}
+rep<-read.csv("rep.csv",header=T)
+```
+
+```{r, echo=FALSE,warning=FALSE}
+p=plm.data(rep,indexes=c("Country","Year"))
+p1=plm(Inflation~logInternet+Broad.money.growth,data=p,model="pooling")
+p2=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=p,model="pooling")
+p3=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=p,model="pooling")
+p4=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=p,model="pooling")
+p5=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=p,model="pooling")
+p6=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=p,model="pooling")
+
+u=matrix(data=0,nrow=7,ncol=12)
+rownames(u)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(u)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+u[,1]=t(c(paste0(round(p1$coefficients,digits=3),star(coeftest(p1,vcov.=vcovNW(p1))[,4])),NA,NA,round(r.squared(p1,dfcor=T),digits=3),nrow(p1$model)))
+u[,2]=t(c(round(sqrt(diag(vcovNW(p1))),digits=3),NA,NA,NA,NA))
+u[,3]=t(c(paste0(round(p2$coefficients,digits=3),star(coeftest(p2,vcov.=vcovNW(p2))[,4])),NA,round(r.squared(p2,dfcor=T),digits=3),nrow(p2$model)))
+u[,4]=t(c(round(sqrt(diag(vcovNW(p2))),digits=3),NA,NA,NA))
+u[,5]=t(c(paste0(round(p3$coefficients,digits=3),star(coeftest(p3,vcov.=vcovNW(p3))[,4])),round(r.squared(p3,dfcor=T),digits=3),nrow(p3$model)))
+u[,6]=t(c(round(sqrt(diag(vcovNW(p3))),digits=3),NA,NA))
+u[,7]=t(c(paste0(round(p4$coefficients[1:3],digits=3),star(coeftest(p4,vcov.=vcovNW(p4))[1:3,4])),NA,NA,round(r.squared(p4,dfcor=T),digits=3),nrow(p4$model)))
+u[,8]=t(c(round(sqrt(diag(vcovNW(p4)))[1:3],digits=3),NA,NA,NA,NA))
+u[,9]=t(c(paste0(round(p5$coefficients[1:4],digits=3),star(coeftest(p5,vcov.=vcovNW(p5))[1:4,4])),NA,round(r.squared(p5,dfcor=T),digits=3),nrow(p5$model)))
+u[,10]=t(c(round(sqrt(diag(vcovNW(p5)))[1:4],digits=3),NA,NA,NA))
+u[,11]=t(c(paste0(round(p6$coefficients[1:5],digits=3),star(coeftest(p6,vcov.=vcovNW(p6))[1:5,4])),round(r.squared(p6,dfcor=T),digits=3),nrow(p6$model)))
+u[,12]=t(c(round(sqrt(diag(vcovNW(p6)))[1:5],digits=3),NA,NA))
+```
+
+```{r table3, echo=FALSE,warning=FALSE}
+knitr::kable(u,caption="The Internet and inflation: pooled OLS")
+```
+
+
+In columns (a–c) the estimated coefficients for Internet are negative, however they are statistically insignificant. Those of Money are positive and significant at the 1% level. Unemployment is statistically insignificant, whilst Oil is significant at the 1% level. Columns (d–f) show similar results to columns (a–c). However, Oil becomes insignificant in model f.
+
+The estimated coefficients for internet range from -3.009 to -4.067, thus when the Internet users ratio increases by 1%, the inflation rate drops by 0.03009% point to 0.04067% point.
+
+
+```{r, echo=FALSE,warning=FALSE}
+p7=plm(Inflation~logInternet+Broad.money.growth,data=p,model="random")
+p8=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=p,model="random")
+p9=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=p,model="random")
+p10=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=p,model="random")
+p11=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=p,model="random")
+#p12=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=p,model="random")
+
+v=matrix(data=0,nrow=7,ncol=12)
+rownames(v)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(v)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+v[,1]=t(c(paste0(round(p7$coefficients,digits=3),star(coeftest(p7,vcov.=vcov(p7))[,4])),NA,NA,round(r.squared(p7,dfcor=T),digits=3),nrow(p7$model)))
+v[,2]=t(c(round(sqrt(diag(vcov(p7))),digits=3),NA,NA,NA,NA))
+v[,3]=t(c(paste0(round(p8$coefficients,digits=3),star(coeftest(p8,vcov.=vcov(p8))[,4])),NA,round(r.squared(p8,dfcor=T),digits=3),nrow(p8$model)))
+v[,4]=t(c(round(sqrt(diag(vcov(p8))),digits=3),NA,NA,NA))
+v[,5]=t(c(paste0(round(p9$coefficients,digits=3),star(coeftest(p9,vcov.=vcov(p9))[,4])),round(r.squared(p9,dfcor=T),digits=3),nrow(p9$model)))
+v[,6]=t(c(round(sqrt(diag(vcov(p9))),digits=3),NA,NA))
+v[,7]=t(c(paste0(round(p10$coefficients[1:3],digits=3),star(coeftest(p10,vcov.=vcov(p10))[1:3,4])),NA,NA,round(r.squared(p10,dfcor=T),digits=3),nrow(p10$model)))
+v[,8]=t(c(round(sqrt(diag(vcov(p10)))[1:3],digits=3),NA,NA,NA,NA))
+v[,9]=t(c(paste0(round(p11$coefficients[1:4],digits=3),star(coeftest(p11,vcov.=vcov(p11))[1:4,4])),NA,round(r.squared(p11,dfcor=T),digits=3),nrow(p11$model)))
+v[,10]=t(c(round(sqrt(diag(vcov(p11)))[1:4],digits=3),NA,NA,NA))
+#v[,11]=t(c(paste0(round(p12$coefficients[1:5],digits=3),star(coeftest(p12,vcov.=vcov(p12))[1:5,4])),round(r.squared(p12,dfcor=T),digits=3),nrow(p12$model)))
+#v[,12]=t(c(round(sqrt(diag(vcov(p12)))[1:5],digits=3),NA,NA))
+```
+
+```{r table4, echo=FALSE,warning=FALSE}
+knitr::kable(v,caption="The Internet and inflation: random effects model")
+```
+
+Similar to Table 2, the model fails to provide results for model f which includes regresses inflation on Internet, Money, Unemployment and Oil as well as the time dummies. 
+
+The estimated coefficients using the random effects model are exactly the same as the pooled OLS. For columns (a-c) the estimated coefficients for Internet are negative, however they are now significant at the 1% level, likewise, those of Money are positive and significant at the 1% level. Unemployment and Oil are both statistically insignificant. For columns (d–e) the coefficient for Internet is significant at the 10% level for model e, whilst the coefficient for Money remain statistically significant at the 1% level for both models.
+
+
+---
+
+### Section 3: Robustness Checks
+
+In his paper, Friesenbichler highlights some issues with Yi and Choi's results. In particular he questions the stationarity of the internet variable since the number of internet users has been increasing over time, shown by plot 1.
+
+
+```{r, echo=FALSE,warning=FALSE, fig.width = 12}
+plot1=ggplot(data = p[1:560,], aes(x = Year, y = Internet, group = Country))+geom_line()+ggtitle("Plot 1 - Individuals using the Internet (% of population) for the first 20 countries")
+plot1
+```
+
+
+Thus, I apply the Dickey-Fuller test to check for stochastic trends. Since the p-value is below the 1% significance level, there is enough evidence to reject the hypothesis of a unit root in both the Internet and inflation variables.
+
+
+```{r echo=FALSE,warning=FALSE,results=T}
+adf.test(na.omit(p$logInternet))
+adf.test(na.omit(p$Inflation))
+```
+
+
+Although, our tests reject the presence of a unit root in the Inflation variable, plot 2 shows significant outliers for several countries: __Armenia, Azerbaijan, Belarus, Brazil, Bulgaria, Congo Dem. Rep., Croatia, Latvia, Lithuania, Moldova, Russian Federation and Ukraine__. The outliers may contribute to heteroscedasticity in the data, thus invalidating our previous regression results.
+
+
+```{r, echo=FALSE,warning=FALSE, fig.width = 12}
+plot2=ggplot(data = p, aes(x = Year, y = Inflation, group = Country))+geom_line()+geom_text(label=p$Country)+ggtitle("Plot 2 - Inflation, consumer prices (annual %)")
+plot2
+```
+
+
+Eliminating these 12 countries from the sample and applying our regressions methods gives the following updated results:
+
+
+```{r, echo=FALSE,warning=FALSE}
+p=p[-c(225:252,337:364,477:504,729:756,813:840,1233:1260,1345:1372,3053:3080,3221:3248,3613:3640,4509:4536,5685:5712),]
+p1=plm(Inflation~logInternet+Broad.money.growth,data=p,model="pooling")
+p2=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=p,model="pooling")
+p3=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=p,model="pooling")
+p4=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=p,model="pooling")
+p5=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=p,model="pooling")
+p6=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=p,model="pooling")
+
+w=matrix(data=0,nrow=7,ncol=12)
+rownames(w)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(w)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+w[,1]=t(c(paste0(round(p1$coefficients,digits=3),star(coeftest(p1,vcov.=vcovNW(p1))[,4])),NA,NA,round(r.squared(p1,dfcor=T),digits=3),nrow(p1$model)))
+w[,2]=t(c(round(sqrt(diag(vcovNW(p1))),digits=3),NA,NA,NA,NA))
+w[,3]=t(c(paste0(round(p2$coefficients,digits=3),star(coeftest(p2,vcov.=vcovNW(p2))[,4])),NA,round(r.squared(p2,dfcor=T),digits=3),nrow(p2$model)))
+w[,4]=t(c(round(sqrt(diag(vcovNW(p2))),digits=3),NA,NA,NA))
+w[,5]=t(c(paste0(round(p3$coefficients,digits=3),star(coeftest(p3,vcov.=vcovNW(p3))[,4])),round(r.squared(p3,dfcor=T),digits=3),nrow(p3$model)))
+w[,6]=t(c(round(sqrt(diag(vcovNW(p3))),digits=3),NA,NA))
+w[,7]=t(c(paste0(round(p4$coefficients[1:3],digits=3),star(coeftest(p4,vcov.=vcovNW(p4))[1:3,4])),NA,NA,round(r.squared(p4,dfcor=T),digits=3),nrow(p4$model)))
+w[,8]=t(c(round(sqrt(diag(vcovNW(p4)))[1:3],digits=3),NA,NA,NA,NA))
+w[,9]=t(c(paste0(round(p5$coefficients[1:4],digits=3),star(coeftest(p5,vcov.=vcovNW(p5))[1:4,4])),NA,round(r.squared(p5,dfcor=T),digits=3),nrow(p5$model)))
+w[,10]=t(c(round(sqrt(diag(vcovNW(p5)))[1:4],digits=3),NA,NA,NA))
+w[,11]=t(c(paste0(round(p6$coefficients[1:5],digits=3),star(coeftest(p6,vcov.=vcovNW(p6))[1:5,4])),round(r.squared(p6,dfcor=T),digits=3),nrow(p6$model)))
+w[,12]=t(c(round(sqrt(diag(vcovNW(p6)))[1:5],digits=3),NA,NA))
+```
+
+```{r table5, echo=FALSE,warning=FALSE}
+knitr::kable(w,caption="The Internet and inflation: pooled OLS")
+```
+
+
+In columns (a–c), the estimated coefficients for Internet are negative, they are also statistically significant at the 1% significance level. Those of Money are positive and significant at the 1% level. Unemployment is statistically significant at the 5% level, whilst Oil is statistically insignificant. Columns (d–f) show similar results to columns (a–c)
+
+The estimated coefficients for internet range from -1.542 to -1.166, thus when the Internet users ratio increases by 1%, the inflation rate drops by 0.01542% point to 0.01166% point.
+
+
+
+```{r, echo=FALSE,warning=FALSE}
+p7=plm(Inflation~logInternet+Broad.money.growth,data=p,model="random")
+p8=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=p,model="random")
+p9=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=p,model="random")
+p10=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=p,model="random")
+p11=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=p,model="random")
+#p12=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=p,model="random")
+
+z=matrix(data=0,nrow=7,ncol=12)
+rownames(z)=c("Constant","Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(z)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+z[,1]=t(c(paste0(round(p7$coefficients,digits=3),star(coeftest(p7,vcov.=vcov(p7))[,4])),NA,NA,round(r.squared(p7,dfcor=T),digits=3),nrow(p7$model)))
+z[,2]=t(c(round(sqrt(diag(vcov(p7))),digits=3),NA,NA,NA,NA))
+z[,3]=t(c(paste0(round(p8$coefficients,digits=3),star(coeftest(p8,vcov.=vcov(p8))[,4])),NA,round(r.squared(p8,dfcor=T),digits=3),nrow(p8$model)))
+z[,4]=t(c(round(sqrt(diag(vcov(p8))),digits=3),NA,NA,NA))
+z[,5]=t(c(paste0(round(p9$coefficients,digits=3),star(coeftest(p9,vcov.=vcov(p9))[,4])),round(r.squared(p9,dfcor=T),digits=3),nrow(p9$model)))
+z[,6]=t(c(round(sqrt(diag(vcov(p9))),digits=3),NA,NA))
+z[,7]=t(c(paste0(round(p10$coefficients[1:3],digits=3),star(coeftest(p10,vcov.=vcov(p10))[1:3,4])),NA,NA,round(r.squared(p10,dfcor=T),digits=3),nrow(p10$model)))
+z[,8]=t(c(round(sqrt(diag(vcov(p10)))[1:3],digits=3),NA,NA,NA,NA))
+z[,9]=t(c(paste0(round(p11$coefficients[1:4],digits=3),star(coeftest(p11,vcov.=vcov(p11))[1:4,4])),NA,round(r.squared(p11,dfcor=T),digits=3),nrow(p11$model)))
+z[,10]=t(c(round(sqrt(diag(vcov(p11)))[1:4],digits=3),NA,NA,NA))
+#z[,11]=t(c(paste0(round(p12$coefficients[1:5],digits=3),star(coeftest(p12,vcov.=vcov(p12))[1:5,4])),round(r.squared(p12,dfcor=T),digits=3),nrow(p12$model)))
+#z[,12]=t(c(round(sqrt(diag(vcov(p12)))[1:5],digits=3),NA,NA))
+```
+
+```{r table6, echo=FALSE,warning=FALSE}
+knitr::kable(z,caption="The Internet and inflation: random effects model")
+```
+
+As with Tables 2 and 4, the model fails to provide results for model f which includes regresses inflation on Internet, Money, Unemployment and Oil as well as the time dummies.
+
+For columns (a-c) the estimated coefficients for Internet are negative and significant at the 1% level, likewise, those of Money are positive and significant at the 1% level. Unemployment and Oil are both statistically insignificant. Columns (d–e) show similar results to columns (a–c), however the coefficient on Unemployment is now significant at the 10% level.
+
+The estimated coefficients using the random effects model are slightly different to that of the pooled OLS. In this case the coefficient on internet ranges from -1.909 to -1.623, thus when the Internet users ratio increases by 1%, the inflation rate drops by 0.01909% point to 0.016236% point.
+
+---
+
+Friesenbichler also mentions issues with model specification in Yi and Choi, in particular the fact that it is likely that there are great differences in the macroeconomic environment across the countries in the original sample. However, fixed effects at the country level have not been controlled. 
+
+Thus, I run a Hausman test where the null hypothesis is that the random effects model is preferred over the alternative, the fixed effects model.
+
+
+```{r echo=FALSE,warning=FALSE}
+f1=plm(Inflation~logInternet+Broad.money.growth,data=p,model="within")
+f2=plm(Inflation~logInternet+Broad.money.growth+Unemployment,data=p,model="within")
+f3=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil,data=p,model="within")
+f4=plm(Inflation~logInternet+Broad.money.growth+factor(Year),data=p,model="within")
+f5=plm(Inflation~logInternet+Broad.money.growth+Unemployment+factor(Year),data=p,model="within")
+f6=plm(Inflation~logInternet+Broad.money.growth+Unemployment+Oil+factor(Year),data=p,model="within")
+```
+
+```{r echo=FALSE,warning=FALSE,results=T}
+phtest(f1,p7)
+phtest(f2,p8)
+phtest(f3,p9)
+phtest(f4,p10)
+phtest(f5,p11)
+```
+
+
+All of tests reject the null hypothesis except for the model where Inflation is regressed on Internet, Money and the time dummies. Thus, I also provide results for the fixed effects model. 
+
+_Note: I am unable to conduct the same test for model where Inflation is Internet, Money, Unemployment and Oil as well as the time dummies due to errors arising in estimation using the random effects model._
+
+
+```{r, echo=FALSE,warning=FALSE}
+f=matrix(data=0,nrow=6,ncol=12)
+rownames(f)=c("Internet","Money","Unemployment","Oil","Adjusted R-squared","Sample Size")
+colnames(f)=c("(a) Coefficient","SE","(b) Coefficient","SE","(c) Coefficient","SE","(d) Coefficient","SE","(e) Coefficient","SE","(f) Coefficient","SE")
+f[,1]=t(c(paste0(round(f1$coefficients,digits=3),star(coeftest(f1,vcov.=vcov(f1))[,4])),NA,NA,round(r.squared(f1,dfcor=T),digits=3),nrow(f1$model)))
+f[,2]=t(c(round(sqrt(diag(vcov(f1))),digits=3),NA,NA,NA,NA))
+f[,3]=t(c(paste0(round(f2$coefficients,digits=3),star(coeftest(f2,vcov.=vcov(f2))[,4])),NA,round(r.squared(f2,dfcor=T),digits=3),nrow(f2$model)))
+f[,4]=t(c(round(sqrt(diag(vcov(f2))),digits=3),NA,NA,NA))
+f[,5]=t(c(paste0(round(f3$coefficients,digits=3),star(coeftest(f3,vcov.=vcov(f3))[,4])),round(r.squared(f3,dfcor=T),digits=3),nrow(f3$model)))
+f[,6]=t(c(round(sqrt(diag(vcov(f3))),digits=3),NA,NA))
+f[,7]=t(c(paste0(round(f4$coefficients[1:2],digits=3),star(coeftest(f4,vcov.=vcov(f4))[1:2,4])),NA,NA,round(r.squared(f4,dfcor=T),digits=3),nrow(f4$model)))
+f[,8]=t(c(round(sqrt(diag(vcov(f4)))[1:2],digits=3),NA,NA,NA,NA))
+f[,9]=t(c(paste0(round(f5$coefficients[1:3],digits=3),star(coeftest(f5,vcov.=vcov(f5))[1:3,4])),NA,round(r.squared(f5,dfcor=T),digits=3),nrow(f5$model)))
+f[,10]=t(c(round(sqrt(diag(vcov(f5)))[1:3],digits=3),NA,NA,NA))
+f[,11]=t(c(paste0(round(f6$coefficients[1:4],digits=3),star(coeftest(f6,vcov.=vcov(f6))[1:4,4])),round(r.squared(f6,dfcor=T),digits=3),nrow(f6$model)))
+f[,12]=t(c(round(sqrt(diag(vcov(f6)))[1:4],digits=3),NA,NA))
+```
+
+```{r table7, echo=FALSE,warning=FALSE}
+knitr::kable(f,caption="The Internet and inflation: fixed effects model")
+```
+
+
+For columns (a-c) the estimated coefficients for Internet are negative and significant at the 1% level, likewise, those of Money are positive and significant at the 1% level. Unemployment is significant at the 1% level whilst Oil is statistically insignificant. Columns (d–f) show similar results to columns (a–c), however the coefficient on Unemployment goes from significant at the 1% level in model e to insignificant in model f.
+
+The estimated coefficients for internet range from -2.143 to -1.716, thus when the Internet users ratio increases by 1%, the inflation rate drops by 0.02143% point to 0.01716% point.
+
+---
+
+### Conclusion
+
+This paper considered the hypothesis proposed by Yi and Choi, _'The coefficient of Internet is expected to have a negative sign as it contributes to the knowledge spill-over and thus the improvement of productivity. We expect that coefficients of money growth rate and oil price will be positive, while that of unemployment rate will be negative.'_ 
+
+In conducting the same regression analysis on a sample of 217 countries over the 1991-2018 period, the findings corroborate with that of the original paper. However the results give much narrower intervals for the coefficient on Internet:
+
+* Pooled OLS: -1.542 to -1.166
+* Random effects: -1.909 to -1.623
+* Fixed effects:  -2.143 to -1.716
+
+(these intervals are based on the results from Section 3)
+
+---
+
+### References
+
+Friesenbichler, Klaus. "Inflation and Broadband Revisited: Evidence from an OECD Panel. A replication study of Yi and Choi (Journal of Policy Modeling, 2005)." International Journal for Re-Views in Empirical Economics 2.2018-1 (2018): 1-21.
+
+Yi, Myung Hoon, and Changkyu Choi. "The effect of the internet on inflation: Panel data evidence." Journal of Policy Modeling 27.7 (2005): 885-889.
+
